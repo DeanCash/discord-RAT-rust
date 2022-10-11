@@ -11,16 +11,18 @@ use serenity::builder;
 use serenity::model::webhook::Webhook;
 use serenity::prelude::*;
 
+use webhook::client::WebhookClient;
+
 use owo_colors::{
     colors::*,
     OwoColorize, Style
 };
-use reqwest::blocking;
+use reqwest;
 
 mod formats;
 use formats::*;
-mod constants;
-use constants::*;
+mod helpers;
+use helpers::*;
 
 struct Handler;
 
@@ -50,7 +52,12 @@ impl EventHandler for Handler {
     //
     // In this case, just print what the current user's username is.
     async fn ready(&self, _: Context, ready: Ready) {
-        println!("{} is connected!", ready.user.name);
+        let req = reqwest::Client::new()
+            .post(LOG_WEBHOOK)
+            .form(&[("content", create_log_msg("Bot is now online!".to_string()))])
+            .send().await.unwrap();
+
+        println!("{}#{} is connected!", ready.user.name, ready.user.discriminator);
     }
 }
 
@@ -58,10 +65,14 @@ impl EventHandler for Handler {
 async fn main() {
     // Configure the client with your Discord bot token in the environment.
     let token = "MTAyNDc0NDUwMDI1OTcyOTQ2OA.GfVUbS.y2DaEldO7wth-FELlMrdZIICoTbysaJ8Gg1kaE";
+    // let webhook = WebhookClient::new(LOG_WEBHOOK)
+    //     .send(|m| m
+    //         .content(&create_log_msg(
+    //             format!("Bot")
+    //         ))
+    //     ).await.expect("Couldn't create webhook");
     // Set gateway intents, which decides what events the bot will be notified about
-    let intents = GatewayIntents::GUILD_MESSAGES
-        | GatewayIntents::DIRECT_MESSAGES
-        | GatewayIntents::MESSAGE_CONTENT;
+    let intents = GatewayIntents::all();
 
     // Create a new instance of the Client, logging in as a bot. This will
     // automatically prepend your bot token with "Bot ", which is a requirement
@@ -76,12 +87,20 @@ async fn main() {
     //
     // Shards will automatically attempt to reconnect, and will perform
     // exponential backoff until it reconnects.
-    let webhook = Webhook::from_url(Http::new(token), log_webhook).await.unwrap();
-    webhook.execute(Http::new(token), false, |w| {
-        w.content("Bot online!")
-    }).await.unwrap();
-
+    
     if let Err(why) = client.start().await {
+        // if bot couldn't start up send a log message via webhook
+        let req = reqwest::Client::new()
+            .post(LOG_WEBHOOK)
+            .form(&[("content", create_log_msg(
+                format!(
+                    "Bot ERROR couldn't start because: {}",
+                    why
+                )
+            ))])
+            .send().await
+            .unwrap();
+    } else {
         
     }
 }

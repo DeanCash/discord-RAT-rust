@@ -7,6 +7,16 @@ edition = "2021"
 
 [dependencies]
 owo-colors = "3.5.0"
+chrono = "0.4"
 reqwest = { version = "0.11.12", features = ["json", "blocking"] }
+tokio = { version = "1.21.2", features = ["full"] }
+
 serenity = { version = "0.11.5", default-features = true, features = ["client", "gateway", "rustls_backend", "model"] }
-tokio = { version = "1.21.2", features = ["macros", "rt-multi-thread"]}
+webhook = "2.1.1"
+
+
+
+
+
+
+
