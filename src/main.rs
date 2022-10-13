@@ -1,28 +1,33 @@
+// #![windows_subsystem = "windows"]
 #![allow(non_snake_case, unused_imports)]
 
 use std::process::exit;
+use std::collections::{HashSet, HashMap};
+use std::sync::Arc;
 
 use serenity::{async_trait, http};
 use serenity::framework::StandardFramework;
 use serenity::http::Http;
 use serenity::model::channel::{Message, Channel};
 use serenity::model::gateway::Ready;
-use serenity::builder;
 use serenity::model::webhook::Webhook;
+use serenity::model::id::UserId;
 use serenity::prelude::*;
+use serenity::builder;
 
 use webhook::client::WebhookClient;
-
+use reqwest;
 use owo_colors::{
     colors::*,
     OwoColorize, Style
 };
-use reqwest;
 
 mod formats;
-use formats::*;
 mod helpers;
+mod commands;
+use formats::*;
 use helpers::*;
+use commands::*;
 
 struct Handler;
 
@@ -33,17 +38,17 @@ impl EventHandler for Handler {
     //
     // Event handlers are dispatched through a threadpool, and so multiple
     // events can be dispatched simultaneously.
-    async fn message(&self, ctx: Context, msg: Message) {
-        if msg.content == "!ping" {
-            // Sending a message can fail, due to a network error, an
-            // authentication error, or lack of permissions to post in the
-            // channel, so log to stdout when some error happens, with a
-            // description of it.
-            if let Err(why) = msg.channel_id.say(&ctx.http, "Pong!").await {
-                println!("Error sending message: {:?}", why);
-            }
-        }
-    }
+    // async fn message(&self, ctx: Context, msg: Message) {
+    //     if msg.content == "aadadaw" {
+    //         // Sending a message can fail, due to a network error, an
+    //         // authentication error, or lack of permissions to post in the
+    //         // channel, so log to stdout when some error happens, with a
+    //         // description of it.
+    //         if let Err(why) = msg.channel_id.say(&ctx.http, "Pong!").await {
+    //             println!("Error sending message: {:?}", why);
+    //         }
+    //     }
+    // }
 
     // Set a handler to be called on the `ready` event. This is called when a
     // shard is booted, and a READY payload is sent by Discord. This payload
@@ -55,7 +60,8 @@ impl EventHandler for Handler {
         let req = reqwest::Client::new()
             .post(LOG_WEBHOOK)
             .form(&[("content", create_log_msg("Bot is now online!".to_string()))])
-            .send().await.unwrap();
+            .send().await
+            .expect("Couldn't send ON webhook");
 
         println!("{}#{} is connected!", ready.user.name, ready.user.discriminator);
     }
@@ -74,21 +80,35 @@ async fn main() {
     // Set gateway intents, which decides what events the bot will be notified about
     let intents = GatewayIntents::all();
 
+    let framework = StandardFramework::new()
+        .configure(|c| c.owners(
+            vec![
+                UserId(523990741543026689)
+            ].into_iter().collect())
+            .case_insensitivity(false)
+            .prefix("!")
+        )
+        .group(&OWNER_GROUP);
+
     // Create a new instance of the Client, logging in as a bot. This will
     // automatically prepend your bot token with "Bot ", which is a requirement
     // by Discord for bot users.
     let mut client =
         Client::builder(&token, intents)
             .event_handler(Handler)
-            .framework(StandardFramework::new()).await
-            .expect("Err creating client");
+            .framework(framework).await
+            .expect("Error creating client");
 
     // Finally, start a single shard, and start listening to events.
     //
     // Shards will automatically attempt to reconnect, and will perform
     // exponential backoff until it reconnects.
-    
-    if let Err(why) = client.start().await {
+    // {
+    //     let mut data = client.data.write().await;
+    //     data.insert::<ShardManagerContainer>(Arc::clone(&client.shard_manager));
+    // }
+
+    if let Err(why) = client.start_autosharded().await {
         // if bot couldn't start up send a log message via webhook
         let req = reqwest::Client::new()
             .post(LOG_WEBHOOK)
@@ -99,14 +119,31 @@ async fn main() {
                 )
             ))])
             .send().await
-            .unwrap();
-    } else {
-        
+            .expect("Couldn't send OFF webhook");
     }
 }
 
 
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
 
+    #[test]
+    fn get_ip() {
+        type Store = HashMap::<String, String>;
+        let res = reqwest::blocking::get("https://api.ipify.org?format=json");
+
+        let a = res.unwrap().json::<Store>().unwrap();
+        
+        println!("RES: {:?}", a);
+        let e = if a.contains_key("ip") {
+            a.get("ip").unwrap().to_owned()
+        } else {
+            String::from("undefined")
+        };
+        println!("json: {}", e);
+    }
+}
 
 
 
