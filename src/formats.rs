@@ -32,4 +32,14 @@ impl Pr {
             "] >>".bold()
         )
     }
+
+    pub fn event() -> String {
+        format!(
+            "{}{}{}{}",
+            "[".blue().bold(),
+            "EVENT".bold(),
+            "]".blue().bold(),
+            " >>".bold()
+        )
+    }
 }

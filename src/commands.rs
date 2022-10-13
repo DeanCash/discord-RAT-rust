@@ -2,19 +2,26 @@
 
 use std::sync::Arc;
 
+use serenity::prelude::*;
 use serenity::builder::CreateEmbed;
 use serenity::client::bridge::gateway::{ShardId, ShardManager};
-use serenity::framework::standard::CommandResult;
-use serenity::framework::standard::macros::*;
+use serenity::framework::standard::{
+    CommandResult,
+    macros::*
+};
 use serenity::model::prelude::*;
 use serenity::utils::Color;
 use serenity::{async_trait, http};
-use serenity::framework::StandardFramework;
 use serenity::http::Http;
-use serenity::model::channel::{Message, Channel};
-use serenity::model::gateway::Ready;
-use serenity::model::webhook::Webhook;
-use serenity::prelude::*;
+use serenity::model::{
+    channel::{Message, Channel},
+    gateway::Ready,
+    webhook::Webhook
+};
+use sysinfo::{System, SystemExt, *};
+
+use crate::formats::Pr;
+use crate::helpers::get_pub_ip;
 
 struct ShardManagerContainer;
 
@@ -25,7 +32,7 @@ impl TypeMapKey for ShardManagerContainer {
 
 
 #[group]
-#[commands(ping)]
+#[commands(ping, ip, info)]
 struct Owner;
 
 #[command]
@@ -72,9 +79,46 @@ async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
         ).await;
     
     match embed {
-        Ok(o) => { println!("sent Ping response!"); },
-        Err(e) => { println!(" Couldn't send message: {}", e); }
+        Ok(o) => { println!(" {} sent Ping response!", Pr::event()); },
+        Err(e) => { println!(" {} Couldn't send message: {}", Pr::err(), e); }
     }
+
+    Ok(())
+}
+
+
+#[command]
+async fn ip(ctx: &Context, msg: &Message) -> CommandResult {
+    let ip = get_pub_ip().await;
+    let embed = msg.channel_id
+        .send_message(&ctx.http, |m|
+            m.embed(|e| e
+                .color(Color::DARK_GREEN)
+                .description(format!("IP: {}", ip))
+                // .description(format!("🏓 Bots Latency: {:?}", runner.latency))
+            )
+        ).await;
+    
+    match embed {
+        Ok(o) => { println!(" {} sent Ping response!", Pr::event()); },
+        Err(e) => { println!(" {} Couldn't send message: {}", Pr::err(), e); }
+    }
+
+    Ok(())
+}
+
+
+#[command]
+async fn info(ctx: &Context, msg: &Message) -> CommandResult {
+    let system = System::new_all();
+    let user_str = system.users()
+        .into_iter()
+        .map(|i| i.name())
+        .collect::<Vec<&str>>();
+
+    msg.channel_id.send_message(&ctx.http, |f| f
+        .content(format!(" - {}", user_str.join("\n- ")))
+    ).await;
 
     Ok(())
 }
