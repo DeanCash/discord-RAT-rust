@@ -23,7 +23,7 @@ use sysinfo::{System, SystemExt, *};
 use crate::formats::Pr;
 use crate::utilities::{
     get_pub_ip,
-    get_all_users
+    get_system_users
 };
 
 
@@ -107,7 +107,7 @@ async fn ip(ctx: &Context, msg: &Message) -> CommandResult {
 
 #[command]
 async fn info(ctx: &Context, msg: &Message, test: Args) -> CommandResult {
-    let users = get_all_users();
+    let users = get_system_users();
 
     println!(" args : {:?}", test);
 

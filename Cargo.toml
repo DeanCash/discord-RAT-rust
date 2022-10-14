@@ -14,7 +14,10 @@ tokio = { version = "1.21.2", features = ["full"] }
 serenity = { version = "0.11.5", default-features = true, features = ["client", "gateway", "rustls_backend", "model"] }
 whoami = "1.2.3"
 sysinfo = "0.26.4"
-
+machine-uid = "0.2.0"
+serde_json = "1.0.86"
+jsonformat = "2.0.0"
+serde = "1.0.145"
 
 
 

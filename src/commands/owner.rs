@@ -1,7 +1,6 @@
 #![allow(non_snake_case, unused_imports)]
 
 use std::process;
-use std::io::{self, Write};
 use std::sync::Arc;
 
 use serenity::prelude::*;
@@ -24,22 +23,31 @@ use sysinfo::{System, SystemExt, *};
 
 use crate::formats::Pr;
 use crate::utilities::{
-    get_pub_ip,
-    get_all_users
+    get_pub_ip, LOG_WEBHOOK, send_log_webhook,
+    get_system_users, clear_console, create_log_msg
 };
 
 #[group]
 #[owners_only]
-#[commands(cls)]
+#[commands(cls, webhook)]
 struct OwnerCommands;
 
 
 #[command]
 async fn cls(_: &Context, _: &Message) -> CommandResult {
-    print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
-    io::stdout().flush().expect("Couldn't CLS console");
+    clear_console();
     Ok(())
 }
+
+
+#[command]
+async fn webhook(ctx: &Context, msg: &Message) -> CommandResult {
+    send_log_webhook(LOG_WEBHOOK.to_string(), 
+        format!("{}: {}", msg.author.tag(), msg.content).as_str()
+    ).await;
+    Ok(())
+}
+
 
 
 
