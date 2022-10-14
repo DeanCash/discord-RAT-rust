@@ -2,6 +2,7 @@ use std::time;
 use std::collections::HashMap;
 use chrono::prelude::*;
 use reqwest;
+use sysinfo::{System, SystemExt, User, UserExt};
 
 pub const BOT_PREFIX: &str = "$";
 
@@ -34,7 +35,7 @@ pub fn create_log_msg(msg: String) -> String {
 }
 
 
-pub async fn get_pub_ip () -> String {
+pub async fn get_pub_ip() -> String {
     type Store = HashMap::<String, String>;
     let res = reqwest::get("https://api.ipify.org?format=json").await;
 
@@ -45,4 +46,12 @@ pub async fn get_pub_ip () -> String {
     } else {
         String::from("undefined")
     }
+}
+
+pub fn get_all_users() -> Vec<String> {
+    let system = System::new_all();
+    system.users()
+        .into_iter()
+        .map(|i| i.name().to_string())
+        .collect::<Vec<String>>()
 }

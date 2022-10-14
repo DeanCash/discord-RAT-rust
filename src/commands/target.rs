@@ -1,5 +1,5 @@
-#![allow(non_snake_case, unused_imports)]
 
+use std::process;
 use std::sync::Arc;
 
 use serenity::prelude::*;
@@ -7,7 +7,7 @@ use serenity::builder::CreateEmbed;
 use serenity::client::bridge::gateway::{ShardId, ShardManager};
 use serenity::framework::standard::{
     CommandResult,
-    macros::*
+    macros::*, Args
 };
 use serenity::model::prelude::*;
 use serenity::utils::Color;
@@ -21,19 +21,16 @@ use serenity::model::{
 use sysinfo::{System, SystemExt, *};
 
 use crate::formats::Pr;
-use crate::helpers::get_pub_ip;
-
-struct ShardManagerContainer;
-
-impl TypeMapKey for ShardManagerContainer {
-    type Value = Arc<Mutex<ShardManager>>;
-}
-
+use crate::utilities::{
+    get_pub_ip,
+    get_all_users
+};
 
 
 #[group]
 #[commands(ping, ip, info)]
-struct Owner;
+struct General;
+
 
 #[command]
 async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
@@ -109,15 +106,13 @@ async fn ip(ctx: &Context, msg: &Message) -> CommandResult {
 
 
 #[command]
-async fn info(ctx: &Context, msg: &Message) -> CommandResult {
-    let system = System::new_all();
-    let user_str = system.users()
-        .into_iter()
-        .map(|i| i.name())
-        .collect::<Vec<&str>>();
+async fn info(ctx: &Context, msg: &Message, test: Args) -> CommandResult {
+    let users = get_all_users();
+
+    println!(" args : {:?}", test);
 
     msg.channel_id.send_message(&ctx.http, |f| f
-        .content(format!(" - {}", user_str.join("\n- ")))
+        .content(format!(" - {}", users.join("\n- ")))
     ).await;
 
     Ok(())
