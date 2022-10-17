@@ -29,7 +29,7 @@ use crate::utilities::{
 
 #[group]
 #[owners_only]
-#[commands(cls, webhook)]
+#[commands(cls, webhook, clear)]
 struct OwnerCommands;
 
 
@@ -41,7 +41,22 @@ async fn cls(_: &Context, _: &Message) -> CommandResult {
 
 
 #[command]
-async fn webhook(ctx: &Context, msg: &Message) -> CommandResult {
+#[num_args(1)]
+async fn clear(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+    let channel = msg.channel(&ctx.http).await.expect("Couldn't get channel")
+        .guild().unwrap();
+
+    let amount = args.single::<u64>().expect("Entered non number!");
+    let messages_to_del = channel.messages(&ctx.http, |m| m
+        .limit(amount + 1)
+    ).await.unwrap();
+    channel.delete_messages(&ctx.http, messages_to_del).await;
+    Ok(())
+}
+
+
+#[command]
+async fn webhook(_ctx: &Context, msg: &Message) -> CommandResult {
     send_log_webhook(LOG_WEBHOOK.to_string(), 
         format!("{}: {}", msg.author.tag(), msg.content).as_str()
     ).await;

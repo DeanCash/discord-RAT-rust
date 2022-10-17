@@ -1,22 +1,13 @@
 
-use std::process;
-use std::sync::Arc;
-
 use serenity::prelude::*;
-use serenity::builder::CreateEmbed;
 use serenity::client::bridge::gateway::{ShardId, ShardManager};
 use serenity::framework::standard::{
     CommandResult,
     macros::*, Args
 };
-use serenity::model::prelude::*;
 use serenity::utils::Color;
-use serenity::{async_trait, http};
-use serenity::http::Http;
 use serenity::model::{
-    channel::{Message, Channel},
-    gateway::Ready,
-    webhook::Webhook
+    channel::{Message,},
 };
 use sysinfo::{System, SystemExt, *};
 
@@ -26,9 +17,8 @@ use crate::utilities::{
     get_system_users
 };
 
-
 #[group]
-#[commands(ping, ip, info)]
+#[commands(ping)]
 struct General;
 
 
@@ -83,37 +73,9 @@ async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
     Ok(())
 }
 
-
 #[command]
-async fn ip(ctx: &Context, msg: &Message) -> CommandResult {
-    let ip = get_pub_ip().await;
-    let embed = msg.channel_id
-        .send_message(&ctx.http, |m|
-            m.embed(|e| e
-                .color(Color::DARK_GREEN)
-                .description(format!("IP: {}", ip))
-                // .description(format!("🏓 Bots Latency: {:?}", runner.latency))
-            )
-        ).await;
-    
-    match embed {
-        Ok(o) => { println!(" {} sent Ping response!", Pr::event()); },
-        Err(e) => { println!(" {} Couldn't send message: {}", Pr::err(), e); }
-    }
+async fn target(ctx: &Context, msg: &Message) -> CommandResult{
 
-    Ok(())
-}
-
-
-#[command]
-async fn info(ctx: &Context, msg: &Message, test: Args) -> CommandResult {
-    let users = get_system_users();
-
-    println!(" args : {:?}", test);
-
-    msg.channel_id.send_message(&ctx.http, |f| f
-        .content(format!(" - {}", users.join("\n- ")))
-    ).await;
 
     Ok(())
 }

