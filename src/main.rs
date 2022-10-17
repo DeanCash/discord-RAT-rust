@@ -28,6 +28,7 @@ use serenity::model::{
 };
 use serenity::prelude::*;
 use sysinfo::{System, SystemExt, UserExt, *};
+use dotenv;
 
 struct Handler;
 
@@ -88,7 +89,8 @@ async fn main() {
     clear_console();
     println!(" {} Script start up", Pr::app());
     // Configure the client with your Discord bot token in the environment.
-    let token = "MTAyNDc0NDUwMDI1OTcyOTQ2OA.GfVUbS.y2DaEldO7wth-FELlMrdZIICoTbysaJ8Gg1kaE";
+    dotenv::dotenv().expect("Couldn't load .ENV");
+    let token = dotenv::var("TOKEN").expect("Couldn't load token");
     // Set gateway intents, which decides what events the bot will be notified about
     let intents = GatewayIntents::all();
 
