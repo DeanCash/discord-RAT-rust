@@ -42,4 +42,14 @@ impl Pr {
             " >>".bold()
         )
     }
+
+    pub fn owner() -> String {
+        format!(
+            "{}{}{}{}",
+            "[".bold(),
+            "OWNER".yellow().bold(),
+            "]".bold(),
+            " >>".bold()
+        )
+    }
 }
